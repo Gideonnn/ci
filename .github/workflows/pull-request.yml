@@ -39,10 +39,10 @@ jobs:
         with:
           path: node_modules
           key: build-cache-${{ hashFiles('**/package-lock.json') }}
-      - name: Linting
-        run: yarn lint
-      - name: Prettier
-        run: yarn format
+      # - name: Linting
+      #   run: yarn lint
+      # - name: Prettier
+      #   run: yarn format
       - name: Unit tests
         run: yarn test
-        
+
