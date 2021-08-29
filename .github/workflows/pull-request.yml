@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+env:
+  CI: true
+
+jobs:
+  install:
+    name: install
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: build-cache-${{ hashFiles('**/package-lock.json') }}
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - name: Prepare .npmrc
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+  test:
+    runs-on: ubuntu-18.04
+    needs: install
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: build-cache-${{ hashFiles('**/package-lock.json') }}
+      - name: Linting
+        run: yarn lint
+      - name: Prettier
+        run: yarn format
+      - name: Unit tests
+        run: yarn test
+        

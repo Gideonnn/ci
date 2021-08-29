@@ -1,0 +1,94 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  CI: true
+
+jobs:
+  install:
+    name: install
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: build-cache-${{ hashFiles('**/package-lock.json') }}
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - name: Prepare .npmrc
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+  test:
+    runs-on: ubuntu-18.04
+    needs: install
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: build-cache-${{ hashFiles('**/package-lock.json') }}
+      - name: Linting
+        run: yarn lint
+      - name: Prettier
+        run: yarn format
+      - name: Unit tests
+        run: yarn test
+
+  version:
+    name: version check
+    runs-on: ubuntu-18.04
+    if: github.base_ref == 'main'
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - name: Get local version
+        id: local_version
+        run: echo ::set-output name=value::$(cat ./package.json | jq --raw-output .version)
+      - name: Get registry version
+        id: registry_version
+        run: echo ::set-output name=value::$(npm view ${{ github.event.repository.name }} version)
+      - run: echo ${{ steps.local_version.outputs.value }} ${{ steps.registry_version.outputs.value }}
+      - name: Validate version
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          result-encoding: string
+          script: |
+            const local_version = '${{ steps.local_version.outputs.value }}';
+            const registry_version = '${{ steps.registry_version.outputs.value }}';
+            if (registry_version === local_version) {
+              core.setFailed('Please bump version before merging');
+            }
+
+  publish:
+    runs-on: ubuntu-18.04
+    needs: version
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Authenticate GPR
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+      - name: Publish
+        run: yarn publish
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-artifact
+          path: dist/
