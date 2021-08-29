@@ -48,18 +48,25 @@ jobs:
   version:
     name: version check
     runs-on: ubuntu-18.04
-    if: github.base_ref == 'main'
+    needs: test
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@main
       - uses: actions/setup-node@v1
         with:
           node-version: '12.x'
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - name: Get local version
         id: local_version
         run: echo ::set-output name=value::$(cat ./package.json | jq --raw-output .version)
+      - name: Authenticate GPR
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
       - name: Get registry version
         id: registry_version
-        run: echo ::set-output name=value::$(npm view ${{ github.event.repository.name }} version)
+        run: echo ::set-output name=value::$(npm view ${{ github.repository }} version)
       - run: echo ${{ steps.local_version.outputs.value }} ${{ steps.registry_version.outputs.value }}
       - name: Validate version
         uses: actions/github-script@v4
@@ -69,6 +76,8 @@ jobs:
           script: |
             const local_version = '${{ steps.local_version.outputs.value }}';
             const registry_version = '${{ steps.registry_version.outputs.value }}';
+            core.info(`Repository version: ${local_version}`);
+            core.info(`Registry version: ${registry_version}`);
             if (registry_version === local_version) {
               core.setFailed('Please bump version before merging');
             }
