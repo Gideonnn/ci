@@ -55,13 +55,8 @@ jobs:
       - name: Build
         run: yarn build
 
-      # - name: Deploy
-      - name: Debug
-        run: |
-          echo "debug:"
-          echo "Run deploy branch for: ${{ github.event.inputs.ref }}"
-          git branch --show-current
-          cat README.md
+      - name: Deploy
+        run: echo "todo"
 
   deploy_version:
     runs-on: ubuntu-18.04
@@ -85,6 +80,5 @@ jobs:
         run: |
           echo "debug:"
           echo "Run deploy version for: ${{ github.event.inputs.ref }}"
-          git branch --show-current
-          cat README.md
           ls
+          ls node_modules/@gideonnn/ci
