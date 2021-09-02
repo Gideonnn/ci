@@ -3,7 +3,7 @@ name: ci
 on:
   push:
     branches:
-      - main
+      - master # switch back to main
 
 env:
   CI: true
