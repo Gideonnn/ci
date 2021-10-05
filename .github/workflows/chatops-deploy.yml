@@ -57,9 +57,6 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 
-      # - run: yarn remove node-sass && yarn add -D node-sass
-      # - run: CI=false yarn build
-
       - name: Build
         run: yarn build
 
@@ -76,20 +73,3 @@ jobs:
           args: --follow-symlinks --delete
         env:
           SOURCE_DIR: ${{ env.BUILD_FOLDER }}
-
-      - name: Dynamically retreive the CloudFront Distribution Id
-        run: |
-          cloudfrontdistids=$(aws cloudfront list-distributions | jq -r ".DistributionList.Items[].ARN")
-          for dist in $cloudfrontdistids; do
-            if [ $(aws cloudfront list-tags-for-resource --resource $dist --query "Tags.Items[?Key=='Application'].Value[]" --output text) == ${{ env.APPLICATION }} ]; then
-               CLOUDFRONT_DISTRIBUTION_ID=${dist##*/}
-            fi
-          done
-          echo "Cloudfront distributionid : $CLOUDFRONT_DISTRIBUTION_ID"
-          echo "DISTRIBUTION=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_ENV
-
-      - name: Invalidate CloudFront cache of distribution ${{ env.DISTRIBUTION }}
-        uses: chetan/invalidate-cloudfront-action@master
-        env:
-          PATHS: '/*'
-          AWS_REGION: ${{ env.AWS_DEFAULT_REGION }}
