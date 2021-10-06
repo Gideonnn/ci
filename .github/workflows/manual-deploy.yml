@@ -68,6 +68,7 @@ jobs:
           args: --follow-symlinks --delete
         env:
           SOURCE_DIR: build
+          AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
 
   deploy_version:
     runs-on: ubuntu-18.04
@@ -99,3 +100,4 @@ jobs:
           args: --follow-symlinks --delete
         env:
           SOURCE_DIR: build
+          AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
