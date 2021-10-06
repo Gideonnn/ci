@@ -3,7 +3,7 @@ name: publish
 on:
   push:
     branches:
-      - master # switch back to main
+      - main
 
 env:
   CI: true
