@@ -33,7 +33,7 @@ jobs:
   deploy_branch:
     runs-on: ubuntu-18.04
     needs: process_inputs
-    if: ${{ needs.process_inputs.outputs.type }} == 'branch'
+    if: ${{ needs.process_inputs.outputs.type == 'branch' }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -72,7 +72,7 @@ jobs:
   deploy_version:
     runs-on: ubuntu-18.04
     needs: process_inputs
-    if: ${{ needs.process_inputs.outputs.type }} == 'version'
+    if: ${{ needs.process_inputs.outputs.type == 'version' }}
     steps:
       - uses: actions/setup-node@v2
         with:
