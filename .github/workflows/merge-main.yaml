@@ -66,11 +66,6 @@ jobs:
         with:
           node-version: '12.x'
 
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-
       - name: Get local version
         id: local_version
         run: echo ::set-output name=value::$(cat ./package.json | jq --raw-output .version)
