@@ -2,7 +2,7 @@
   "name": "@gideonnn/ci",
   "version": "0.1.1",
   "files": [
-    "dist"
+    "build"
   ],
   "dependencies": {
     "@testing-library/jest-dom": "^5.11.4",
