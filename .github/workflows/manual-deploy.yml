@@ -55,8 +55,19 @@ jobs:
       - name: Build
         run: yarn build
 
-      - name: Deploy
-        run: echo "todo"
+      - name: Configure AWS CREDENTIALS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Deploy to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --follow-symlinks --delete
+        env:
+          SOURCE_DIR: build
 
   deploy_version:
     runs-on: ubuntu-18.04
@@ -75,10 +86,16 @@ jobs:
       - name: Download artifact
         run: yarn add ${{ github.repository }}
 
-      # - name: Deploy
-      - name: Debug
-        run: |
-          echo "debug:"
-          echo "Run deploy version for: ${{ github.event.inputs.ref }}"
-          ls
-          ls node_modules/@gideonnn/ci
+      - name: Configure AWS CREDENTIALS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Deploy to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --follow-symlinks --delete
+        env:
+          SOURCE_DIR: build
