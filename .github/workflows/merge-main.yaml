@@ -112,6 +112,11 @@ jobs:
       - name: Publish
         run: yarn publish
 
+      - name: Debug
+        run: |
+          ls
+          ls build/
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
         with:
