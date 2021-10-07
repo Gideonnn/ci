@@ -22,7 +22,7 @@ jobs:
       - name: ref
         id: inputs_type
         run: |
-          if [[ ${{ github.event.inputs.ref }} =~ ^v?\d\.\d\.\d$ ]]; then
+          if [[ ${{ github.event.inputs.ref }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo ::set-output name=type::version
               echo "version"
           else
@@ -79,13 +79,31 @@ jobs:
         with:
           node-version: '12.13'
 
+      - name: Convert reponame to lowercase
+        id: to_lowercase
+        uses: ASzc/change-string-case-action@v1
+        with:
+          string: ${{ github.repository }}
+
       - name: Create .npmrc
         run: |
           echo "@gideonnn:registry=https://npm.pkg.github.com/" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
+      - name: Check if version exists
+        run: |
+          pkg_name=@${{ steps.to_lowercase.outputs.lowercase }}
+          input_version=${{ github.event.inputs.ref }}
+          all_versions=$(npm view ${pkg_name} versions)
+          exists=$(npm view ${pkg_name}@${input_version} versions)
+          echo "Requested version: $input_version"
+          echo "Available versions: $all_versions"
+          if [ -z "$exists" ]; then
+            exit 1;
+          fi
+
       - name: Download artifact
-        run: yarn add ${{ github.repository }}
+        run: yarn add @${{ steps.to_lowercase.outputs.lowercase }}@${{ github.event.inputs.ref }}
 
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
@@ -99,5 +117,5 @@ jobs:
         with:
           args: --follow-symlinks --delete
         env:
-          SOURCE_DIR: build
+          SOURCE_DIR: node_modules/@${{ steps.to_lowercase.outputs.lowercase }}
           AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
