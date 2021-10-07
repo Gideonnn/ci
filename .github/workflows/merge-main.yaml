@@ -122,6 +122,11 @@ jobs:
     runs-on: ubuntu-18.04
     needs: publish
     steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: build-artifact
+          path: build
+
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
