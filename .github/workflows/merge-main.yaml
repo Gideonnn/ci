@@ -112,13 +112,27 @@ jobs:
       - name: Publish
         run: yarn publish
 
-      - name: Debug
-        run: |
-          ls
-          ls build/
-
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
         with:
           name: build-artifact
           path: build
+
+  deploy:
+    runs-on: ubuntu-18.04
+    needs: publish
+    steps:
+      - name: Configure AWS CREDENTIALS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      - name: Deploy to S3
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --follow-symlinks --delete
+        env:
+          SOURCE_DIR: build
+          AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
