@@ -24,27 +24,36 @@ jobs:
         run: |
           if [[ ${{ github.event.inputs.ref }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo ::set-output name=type::version
-              echo "version"
+              echo "Deploying version ${{ github.event.inputs.ref }}"
           else
               echo ::set-output name=type::branch
-              echo "branch"
+              echo "Deploying branch ${{ github.event.inputs.ref }}"
           fi
 
   deploy_branch:
     runs-on: ubuntu-18.04
     needs: process_inputs
     if: ${{ needs.process_inputs.outputs.type == 'branch' }}
+    env:
+      INPUT_REF: ${{ github.event.inputs.ref }}
+      NPM_REGISTRY: npm.pkg.github.com
+      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-west-1
+      AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
+      SOURCE_DIR: build
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: refs/heads/${{ github.event.inputs.ref }}
+          ref: refs/heads/${{ env.INPUT_REF }}
 
       - uses: actions/setup-node@v2
         with:
           node-version: '12.13'
 
       - name: Prepare .npmrc
-        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ env.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -58,22 +67,32 @@ jobs:
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
         uses: jakejarvis/s3-sync-action@master
         with:
           args: --follow-symlinks --delete
         env:
-          SOURCE_DIR: build
-          AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
+          SOURCE_DIR: ${{ env.SOURCE_DIR }}
+          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
 
   deploy_version:
     runs-on: ubuntu-18.04
     needs: process_inputs
     if: ${{ needs.process_inputs.outputs.type == 'version' }}
+    env:
+      INPUT_REF: ${{ github.event.inputs.ref }}
+      NPM_REGISTRY: npm.pkg.github.com
+      NPM_NAMESPACE: '@gideonnn'
+      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: eu-west-1
+      AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
+      SOURCE_DIR: build
     steps:
       - uses: actions/setup-node@v2
         with:
@@ -87,13 +106,13 @@ jobs:
 
       - name: Create .npmrc
         run: |
-          echo "@gideonnn:registry=https://npm.pkg.github.com/" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+          echo "${{ env.NPM_NAMESPACE }}:registry=https://${{ env.NPM_REGISTRY }}" > .npmrc
+          echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ env.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Check if version exists
         run: |
           pkg_name=@${{ steps.to_lowercase.outputs.lowercase }}
-          input_version=${{ github.event.inputs.ref }}
+          input_version=${{ env.INPUT_REF }}
           all_versions=$(npm view ${pkg_name} versions)
           exists=$(npm view ${pkg_name}@${input_version} versions)
           echo "Requested version: $input_version"
@@ -103,19 +122,28 @@ jobs:
           fi
 
       - name: Download artifact
-        run: yarn add @${{ steps.to_lowercase.outputs.lowercase }}@${{ github.event.inputs.ref }}
+        run: yarn add @${{ steps.to_lowercase.outputs.lowercase }}@${{ env.INPUT_REF }}
+
+      - name: Check if artifact exists
+        env:
+          SOURCE_DIR: node_modules/@${{ steps.to_lowercase.outputs.lowercase }}/${{ env.SOURCE_DIR }}
+        run: |
+          if [ ! -d "$SOURCE_DIR" ]; then
+            echo "Download successful, but cannot find build artifact. ($SOURCE_DIR)"
+            exit 1;
+          fi
 
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
         uses: jakejarvis/s3-sync-action@master
         with:
           args: --follow-symlinks --delete
         env:
-          SOURCE_DIR: node_modules/@${{ steps.to_lowercase.outputs.lowercase }}/build
-          AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
+          SOURCE_DIR: node_modules/@${{ steps.to_lowercase.outputs.lowercase }}/${{ env.SOURCE_DIR }}
+          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
