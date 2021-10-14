@@ -8,6 +8,7 @@ on:
 
 env:
   CI: true
+  NPM_REGISTRY: npm.pkg.github.com
 
 jobs:
   version:
@@ -26,18 +27,16 @@ jobs:
         run: echo ::set-output name=value::$(cat ./package.json | jq --raw-output .version)
 
       - name: Authenticate GPR
-        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Get registry version
         id: registry_version
         run: echo ::set-output name=value::$(npm view ${{ github.repository }} version)
 
-      - run: echo ${{ steps.local_version.outputs.value }} ${{ steps.registry_version.outputs.value }}
-
       - name: Validate version
         uses: actions/github-script@v4
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
           script: |
             const local_version = '${{ steps.local_version.outputs.value }}';
@@ -64,12 +63,12 @@ jobs:
           node-version: '12.x'
 
       - name: Prepare .npmrc
-        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
+        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 
-  test:
+  lint:
     runs-on: ubuntu-18.04
     needs: install
     steps:
@@ -89,6 +88,21 @@ jobs:
 
       # - name: Prettier
       #   run: yarn format
+
+  test:
+    runs-on: ubuntu-18.04
+    needs: install
+    steps:
+      - uses: actions/checkout@main
+
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+
+      - uses: actions/cache@v1
+        with:
+          path: node_modules
+          key: build-cache-${{ hashFiles('**/package-lock.json') }}
 
       - name: Unit tests
         run: yarn test

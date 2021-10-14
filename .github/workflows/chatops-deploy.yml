@@ -2,6 +2,25 @@ name: chatops-deploy
 
 on: issue_comment
 
+env:
+  CI: true
+  APPLICATION_NAME: clientfrontendv2
+  SOURCE_DIR: build
+  NPM_REGISTRY: npm.pkg.github.com
+  AWS_REGION: eu-west-1
+  AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
+  REACT_APP_API: https://api.defiterm-dev.net
+  REACT_APP_ASSETS: https://assets.defiterm-dev.net
+  REACT_APP_RINKEBYTESTNET: https://ethereumnode.defiterm-dev.net
+  REACT_APP_ETHMAINNET: https://ethereumnode.defiterm.io
+  REACT_APP_MATICTESTNET: https://rpc-mumbai.maticvigil.com
+  REACT_APP_MATICMAINNET: https://rpc-mainnet.maticvigil.com
+  REACT_APP_BSCTESTNET: https://data-seed-prebsc-1-s1.binance.org:8545/
+  REACT_APP_BSCMAINNET: https://bscnode.defiterm-dev.net/
+  REACT_APP_AVALANCHETESTNET: https://api.avax-test.network/ext/bc/C/rpc
+  REACT_APP_AVALANCHEMAINNET: https://api.avax.network/ext/bc/C/rpc
+  REACT_APP_ALLOWED_NETWORKS: 1,4,56,97,80001,137,43114,43113
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
@@ -22,25 +41,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: trigger
-    env:
-      NPM_REGISTRY: npm.pkg.github.com
-      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: eu-west-1
-      AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
-      SOURCE_DIR: build
-      REACT_APP_API: https://api.defiterm-dev.net
-      REACT_APP_ASSETS: https://assets.defiterm-dev.net
-      REACT_APP_RINKEBYTESTNET: https://ethereumnode.defiterm-dev.net
-      REACT_APP_ETHMAINNET: https://ethereumnode.defiterm.io
-      REACT_APP_MATICTESTNET: https://rpc-mumbai.maticvigil.com
-      REACT_APP_MATICMAINNET: https://rpc-mainnet.maticvigil.com
-      REACT_APP_BSCTESTNET: https://data-seed-prebsc-1-s1.binance.org:8545/
-      REACT_APP_BSCMAINNET: https://bscnode.defiterm-dev.net/
-      REACT_APP_AVALANCHETESTNET: https://api.avax-test.network/ext/bc/C/rpc
-      REACT_APP_AVALANCHEMAINNET: https://api.avax.network/ext/bc/C/rpc
-      REACT_APP_ALLOWED_NETWORKS: 1,4,56,97,80001,137,43114,43113
     steps:
       - uses: actions/checkout@v2
 
@@ -49,7 +49,7 @@ jobs:
           node-version: '12.13'
 
       - name: Prepare .npmrc
-        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ env.NPM_AUTH_TOKEN }}" >> .npmrc
+        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
@@ -60,8 +60,8 @@ jobs:
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
@@ -71,3 +71,20 @@ jobs:
         env:
           SOURCE_DIR: ${{ env.SOURCE_DIR }}
           AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
+
+      # - name: Retreive CloudFront distribution id
+      #   run: |
+      #     cloudfrontdistids=$(aws cloudfront list-distributions | jq -r ".DistributionList.Items[].ARN")
+      #     for dist in $cloudfrontdistids; do
+      #       if [ $(aws cloudfront list-tags-for-resource --resource $dist --query "Tags.Items[?Key=='Application'].Value[]" --output text) == ${{ env.APPLICATION_NAME }} ]; then
+      #          CLOUDFRONT_DISTRIBUTION_ID=${dist##*/}
+      #       fi
+      #     done
+      #     echo "Cloudfront distributionid : $CLOUDFRONT_DISTRIBUTION_ID"
+      #     echo "DISTRIBUTION=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_ENV
+
+      # - name: Invalidate CloudFront cache of distribution ${{ env.DISTRIBUTION }}
+      #   uses: chetan/invalidate-cloudfront-action@master
+      #   env:
+      #     PATHS: '/*'
+      #     AWS_REGION: ${{ env.AWS_REGION }}
