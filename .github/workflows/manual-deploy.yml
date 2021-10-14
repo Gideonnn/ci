@@ -4,9 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'The branch, tag or SHA to deploy'
+        description: 'The branch or version to deploy'
         required: true
         default: develop
+
+env:
+  CI: true
+  INPUT_REF: ${{ github.event.inputs.ref }}
+  APPLICATION_NAME: clientfrontendv2
+  SOURCE_DIR: build
+  NPM_REGISTRY: npm.pkg.github.com
+  NPM_NAMESPACE: '@gideonnn'
+  NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: eu-west-1
+  AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
 
 jobs:
   process_inputs:
@@ -34,15 +47,6 @@ jobs:
     runs-on: ubuntu-18.04
     needs: process_inputs
     if: ${{ needs.process_inputs.outputs.type == 'branch' }}
-    env:
-      INPUT_REF: ${{ github.event.inputs.ref }}
-      NPM_REGISTRY: npm.pkg.github.com
-      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: eu-west-1
-      AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
-      SOURCE_DIR: build
     steps:
       - uses: actions/checkout@v2
         with:
@@ -53,13 +57,10 @@ jobs:
           node-version: '12.13'
 
       - name: Prepare .npmrc
-        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ env.NPM_AUTH_TOKEN }}" >> .npmrc
+        run: echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
-
-      - name: Test
-        run: yarn test
 
       - name: Build
         run: yarn build
@@ -67,8 +68,8 @@ jobs:
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
@@ -79,20 +80,27 @@ jobs:
           SOURCE_DIR: ${{ env.SOURCE_DIR }}
           AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
 
+      # - name: Retreive CloudFront distribution id
+      #   run: |
+      #     cloudfrontdistids=$(aws cloudfront list-distributions | jq -r ".DistributionList.Items[].ARN")
+      #     for dist in $cloudfrontdistids; do
+      #       if [ $(aws cloudfront list-tags-for-resource --resource $dist --query "Tags.Items[?Key=='Application'].Value[]" --output text) == ${{ env.APPLICATION_NAME }} ]; then
+      #          CLOUDFRONT_DISTRIBUTION_ID=${dist##*/}
+      #       fi
+      #     done
+      #     echo "Cloudfront distributionid : $CLOUDFRONT_DISTRIBUTION_ID"
+      #     echo "DISTRIBUTION=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_ENV
+
+      # - name: Invalidate CloudFront cache of distribution ${{ env.DISTRIBUTION }}
+      #   uses: chetan/invalidate-cloudfront-action@master
+      #   env:
+      #     PATHS: '/*'
+      #     AWS_REGION: ${{ env.AWS_REGION }}
+
   deploy_version:
     runs-on: ubuntu-18.04
     needs: process_inputs
     if: ${{ needs.process_inputs.outputs.type == 'version' }}
-    env:
-      INPUT_REF: ${{ github.event.inputs.ref }}
-      NPM_REGISTRY: npm.pkg.github.com
-      NPM_NAMESPACE: '@gideonnn'
-      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: eu-west-1
-      AWS_S3_BUCKET: lmaas-clientfrontend-gideon-dev-890530445547-eu-west-1
-      SOURCE_DIR: build
     steps:
       - uses: actions/setup-node@v2
         with:
@@ -107,7 +115,7 @@ jobs:
       - name: Create .npmrc
         run: |
           echo "${{ env.NPM_NAMESPACE }}:registry=https://${{ env.NPM_REGISTRY }}" > .npmrc
-          echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ env.NPM_AUTH_TOKEN }}" >> .npmrc
+          echo "//${{ env.NPM_REGISTRY }}/:_authToken=${{ secrets.NPM_AUTH_TOKEN }}" >> .npmrc
 
       - name: Check if version exists
         run: |
@@ -136,8 +144,8 @@ jobs:
       - name: Configure AWS CREDENTIALS
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
@@ -147,3 +155,20 @@ jobs:
         env:
           SOURCE_DIR: node_modules/@${{ steps.to_lowercase.outputs.lowercase }}/${{ env.SOURCE_DIR }}
           AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
+
+      # - name: Retreive CloudFront distribution id
+      #   run: |
+      #     cloudfrontdistids=$(aws cloudfront list-distributions | jq -r ".DistributionList.Items[].ARN")
+      #     for dist in $cloudfrontdistids; do
+      #       if [ $(aws cloudfront list-tags-for-resource --resource $dist --query "Tags.Items[?Key=='Application'].Value[]" --output text) == ${{ env.APPLICATION_NAME }} ]; then
+      #          CLOUDFRONT_DISTRIBUTION_ID=${dist##*/}
+      #       fi
+      #     done
+      #     echo "Cloudfront distributionid : $CLOUDFRONT_DISTRIBUTION_ID"
+      #     echo "DISTRIBUTION=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_ENV
+
+      # - name: Invalidate CloudFront cache of distribution ${{ env.DISTRIBUTION }}
+      #   uses: chetan/invalidate-cloudfront-action@master
+      #   env:
+      #     PATHS: '/*'
+      #     AWS_REGION: ${{ env.AWS_REGION }}
